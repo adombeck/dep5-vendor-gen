@@ -917,7 +917,8 @@ Examples:
                        help='Vendor directories to scan (default: auto-detect ./vendor*)')
     parser.add_argument('--debian-copyright', default='debian/copyright',
                         metavar="<copyright-file>",
-                       help='Path to debian/copyright file (default: debian/copyright)')
+                       help='Path to debian/copyright file, created along with its '
+                            'parent directories if needed (default: debian/copyright)')
     parser.add_argument('--debug', action='store_true',
                        help='Enable debug logging')
 
@@ -944,10 +945,10 @@ Examples:
                 f"Vendor directory '{vendor_dir}' does not exist or is not a directory")
             sys.exit(1)
 
-    if not os.path.isdir(os.path.dirname(args.debian_copyright)):
-        logger.error(
-            f"Output directory '{os.path.dirname(args.debian_copyright)}' does not exist or is not a directory")
-        sys.exit(1)
+    output_dir = os.path.dirname(args.debian_copyright)
+    if output_dir and not os.path.isdir(output_dir):
+        logger.info(f"Creating output directory '{output_dir}'...")
+        os.makedirs(output_dir, exist_ok=True)
 
     # Create copyright file generator and read existing copyright
     generator = CopyrightFileGenerator(args.debian_copyright)
