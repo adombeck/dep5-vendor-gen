@@ -61,6 +61,41 @@ After running, validate the generated file with
 [`lrc`](https://manpages.debian.org/testing/licenserecon/lrc.1.en.html) (from
 the `licenserecon` package).
 
+## GitHub Action
+
+A composite GitHub Action is provided so CI can fail whenever the committed
+`debian/copyright` is out of date with the vendored dependencies (e.g. after a
+dependency bump). It regenerates the copyright file into a temporary location
+(preserving the existing header and `License:` stanzas) and diffs it against
+the committed file.
+
+```yaml
+- uses: actions/checkout@v4
+
+- name: Check debian/copyright is up to date
+  uses: canonical/dep5-vendor-gen@v1
+  with:
+    vendor-dirs: vendor vendor_rust
+```
+
+### Inputs
+
+| input | default | purpose |
+|---|---|---|
+| `vendor-dirs` | `""` | space-separated dirs; empty ⇒ tool auto-detects `./vendor*` |
+| `copyright-file` | `debian/copyright` | path to check |
+| `working-directory` | `.` | dir to run in |
+| `fail-on-diff` | `true` | `false` ⇒ warn only, still sets outputs |
+| `pre-run` | `""` | optional command run in `working-directory` to materialise vendor dirs (e.g. `go mod vendor`, `cargo vendor vendor_rust`) |
+| `debug` | `false` | pass `--debug` to `dep5-vendor-gen` |
+
+### Outputs
+
+| output | description |
+|---|---|
+| `up-to-date` | `"true"` or `"false"` |
+| `diff` | unified diff between the committed and regenerated copyright file (empty when up to date) |
+
 ## License
 
 This project is licensed under the terms of the GNU General Public License,

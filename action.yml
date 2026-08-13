@@ -1,0 +1,93 @@
+name: 'dep5-vendor-gen: check debian/copyright freshness'
+description: >-
+  Fail CI when the committed debian/copyright (DEP-5) file is out of date
+  with the vendored dependencies, using dep5-vendor-gen.
+
+branding:
+  icon: 'file-text'
+  color: 'blue'
+
+inputs:
+  vendor-dirs:
+    description: >-
+      Space-separated list of vendor directories to scan. Leave empty to let
+      dep5-vendor-gen auto-detect ./vendor* directories.
+    required: false
+    default: ''
+  copyright-file:
+    description: 'Path (relative to working-directory) to the debian/copyright file to check.'
+    required: false
+    default: 'debian/copyright'
+  working-directory:
+    description: 'Directory to run the check in.'
+    required: false
+    default: '.'
+  fail-on-diff:
+    description: >-
+      Whether to fail the action when the copyright file is out of date.
+      Set to "false" to only warn and still expose the up-to-date/diff outputs.
+    required: false
+    default: 'true'
+  pre-run:
+    description: >-
+      Optional shell command to run in working-directory before scanning, to
+      materialise vendor directories (e.g. "go mod vendor" or
+      "cargo vendor vendor_rust").
+    required: false
+    default: ''
+  debug:
+    description: 'Pass --debug to dep5-vendor-gen for verbose logging.'
+    required: false
+    default: 'false'
+
+outputs:
+  up-to-date:
+    description: '"true" if the copyright file matches what dep5-vendor-gen generates, "false" otherwise.'
+    value: ${{ steps.check.outputs.up-to-date }}
+  diff:
+    description: 'Unified diff between the committed and regenerated copyright file (empty when up to date).'
+    value: ${{ steps.check.outputs.diff }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install --no-install-recommends -y licensecheck python3-pip
+        # python3-anytree isn't packaged on all supported Ubuntu releases
+        # (e.g. noble/24.04), so fall back to pip if apt doesn't have it.
+        if ! sudo apt-get install --no-install-recommends -y python3-anytree; then
+          pip install --break-system-packages anytree
+        fi
+
+    - name: Log tool versions
+      shell: bash
+      run: |
+        {
+          echo "### dep5-vendor-gen tool versions"
+          echo
+          echo '```'
+          licensecheck --version
+          dpkg-query -W -f='${Package} ${Version}\n' licensecheck
+          echo '```'
+        } | tee -a "$GITHUB_STEP_SUMMARY"
+
+    - name: Run pre-run command
+      if: ${{ inputs.pre-run != '' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: ${{ inputs.pre-run }}
+
+    - name: Check debian/copyright freshness
+      id: check
+      shell: bash
+      env:
+        COPYRIGHT_FILE: ${{ inputs.copyright-file }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        VENDOR_DIRS: ${{ inputs.vendor-dirs }}
+        FAIL_ON_DIFF: ${{ inputs.fail-on-diff }}
+        DEBUG: ${{ inputs.debug }}
+        DEP5_VENDOR_GEN: ${{ github.action_path }}/dep5-vendor-gen
+      run: ${{ github.action_path }}/.github/scripts/check-copyright.sh
