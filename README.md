@@ -27,11 +27,10 @@ CI without introducing spurious diffs.
 
 - Python 3
 - [`python3-anytree`](https://pypi.org/project/anytree/)
-- [`licensecheck`](https://manpages.debian.org/testing/licensecheck/licensecheck.1.en.html)
-  (part of the `devscripts` package on Debian/Ubuntu)
+- [`licensecheck`](https://manpages.ubuntu.com/manpages/lts/man1/licensecheck.1p.html)
 
 ```
-sudo apt install python3-anytree devscripts
+sudo apt install python3-anytree licensecheck
 ```
 
 ## Usage
