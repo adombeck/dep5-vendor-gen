@@ -107,13 +107,13 @@ if [[ "$up_to_date" == "true" ]]; then
 fi
 
 if [[ "$PUSH_FIX" == "true" ]]; then
-  if [[ "$GITHUB_EVENT_NAME" == "pull_request" && -n "$PR_HEAD_REPO" && "$PR_HEAD_REPO" != "$GITHUB_REPOSITORY" ]]; then
+  if [[ ("$GITHUB_EVENT_NAME" == "pull_request" || "$GITHUB_EVENT_NAME" == "pull_request_target") && -n "$PR_HEAD_REPO" && "$PR_HEAD_REPO" != "$GITHUB_REPOSITORY" ]]; then
     echo "::warning::push-fix is enabled, but this pull request is from fork '$PR_HEAD_REPO'; a token for this repository cannot push there. Falling back to the normal fail/warn behaviour."
   elif [[ -z "$TOKEN" ]]; then
     echo "::warning::push-fix is enabled, but no 'token' input was provided; skipping push and falling back to the normal fail/warn behaviour."
   else
     branch="$PUSH_REF_NAME"
-    if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+    if [[ "$GITHUB_EVENT_NAME" == "pull_request" || "$GITHUB_EVENT_NAME" == "pull_request_target" ]]; then
       branch="$PR_HEAD_REF"
     fi
 
@@ -124,6 +124,15 @@ if [[ "$PUSH_FIX" == "true" ]]; then
       git fetch --depth=1 origin "$branch"
       git checkout -B "$branch" "origin/$branch"
 
+      # Regenerate the copyright file against the freshly checked-out revision
+      # so the commit is never based on stale workspace output.
+      : > "$tmp_copyright"
+      if [[ -f "$COPYRIGHT_FILE" ]]; then
+        cp "$COPYRIGHT_FILE" "$tmp_copyright"
+      fi
+      "$DEP5_VENDOR_GEN" "${debug_args[@]}" --debian-copyright "$tmp_copyright" "${vendor_args[@]}"
+
+      mkdir -p "$(dirname "$COPYRIGHT_FILE")"
       cp "$tmp_copyright" "$COPYRIGHT_FILE"
       git add "$COPYRIGHT_FILE"
 
@@ -159,11 +168,12 @@ echo "pushed=false" >> "$GITHUB_OUTPUT"
   echo '```'
 } >> "$GITHUB_STEP_SUMMARY"
 
-echo "::error file=${COPYRIGHT_FILE}::${COPYRIGHT_FILE} is out of date with the vendored dependencies. Run dep5-vendor-gen and commit the result."
 echo "$diff_output"
 
 if [[ "$FAIL_ON_DIFF" == "true" ]]; then
+  echo "::error file=${COPYRIGHT_FILE}::${COPYRIGHT_FILE} is out of date with the vendored dependencies. Run dep5-vendor-gen and commit the result."
   exit 1
 fi
 
+echo "::warning file=${COPYRIGHT_FILE}::${COPYRIGHT_FILE} is out of date with the vendored dependencies. Run dep5-vendor-gen and commit the result."
 exit 0

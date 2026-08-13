@@ -49,12 +49,15 @@ jobs:
           fail-on-diff: 'false'
 
       - name: Assert stale detection
+        env:
+          STEP_UP_TO_DATE: ${{ steps.check.outputs.up-to-date }}
+          STEP_DIFF: ${{ steps.check.outputs.diff }}
         run: |
-          if [[ "${{ steps.check.outputs.up-to-date }}" != "false" ]]; then
-            echo "::error::Expected mutated fixture to be reported as stale, got up-to-date=${{ steps.check.outputs.up-to-date }}"
+          if [[ "$STEP_UP_TO_DATE" != "false" ]]; then
+            echo "::error::Expected mutated fixture to be reported as stale, got up-to-date=$STEP_UP_TO_DATE"
             exit 1
           fi
-          if [[ -z "${{ steps.check.outputs.diff }}" ]]; then
+          if [[ -z "$STEP_DIFF" ]]; then
             echo "::error::Expected a non-empty diff output"
             exit 1
           fi
@@ -102,6 +105,7 @@ jobs:
           working-directory: tests/fixtures
           vendor-dirs: vendor
           push-fix: 'true'
+          token: ''
 
       - name: Assert step failed and did not push
         run: |
